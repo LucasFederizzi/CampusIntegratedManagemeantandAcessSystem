@@ -1,32 +1,46 @@
+import serial
 import json
-import pika
 
-connection = pika.BlockingConnection(
-    pika.ConnectionParameters('IP_DO_SERVIDOR')
+from datetime import datetime
+
+arduino = serial.Serial(
+    '/dev/ttyACM0',
+    9600,
+    timeout=1
 )
 
-channel = connection.channel()
+LOCAL = "SALA_101"
 
-channel.queue_declare(
-    queue='presencas',
-    durable=True
-)
+print("Aguardando cartões...")
 
-evento = {
-    "uid": "A1B2C3D4",
-    "timestamp": "2025-06-18T20:30:00",
-    "local": "SALA_101"
-}
+while True:
 
-channel.basic_publish(
-    exchange='',
-    routing_key='presencas',
-    body=json.dumps(evento),
-    properties=pika.BasicProperties(
-        delivery_mode=2
-    )
-)
+    linha = arduino.readline().decode().strip()
 
-print("Evento enviado")
+    if not linha:
+        continue
 
-connection.close()
+    try:
+
+        dados = json.loads(linha)
+
+        # Ignora mensagens que não são RFID
+        if dados.get("evento") != "rfid":
+            continue
+
+        uid = dados["uid"]
+
+        evento = {
+            "uid": uid,
+            "timestamp": datetime.now().isoformat(),
+            "local": LOCAL,
+            "tipo": "presenca"
+        }
+
+        print(evento)
+
+    except Exception as e:
+
+        print("Erro ao processar mensagem:")
+        print(linha)
+        print(e)

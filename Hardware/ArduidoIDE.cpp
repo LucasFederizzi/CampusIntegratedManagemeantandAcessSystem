@@ -19,7 +19,7 @@ void setup() {
 
   tone(BUZZER_PIN, 2000, 100);
 
-  Serial.println("Sistema iniciado");
+  Serial.println("{\"status\":\"sistema_iniciado\"}");
 }
 
 void loop() {
@@ -47,9 +47,9 @@ void loop() {
 
   tone(BUZZER_PIN, 1500, 100);
 
-  Serial.print("{"evento":"rfid","uid":"");
+  Serial.print("{\"evento\":\"rfid\",\"uid\":\"");
   Serial.print(uid);
-  Serial.println(""}");
+  Serial.println("\"}");
 
   rfid.PICC_HaltA();
 }
