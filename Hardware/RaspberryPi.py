@@ -1,6 +1,7 @@
 import serial
 import json
 
+from producer import enviar_evento
 from datetime import datetime
 
 arduino = serial.Serial(
@@ -37,6 +38,10 @@ while True:
             "tipo": "presenca"
         }
 
+        # ENVIA PARA O RABBITMQ
+        enviar_evento(evento)
+
+        print("Evento enviado:")
         print(evento)
 
     except Exception as e:
