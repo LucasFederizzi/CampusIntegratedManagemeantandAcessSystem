@@ -3,36 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registro de Presença</title>
+  <title>Controle de Acesso</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <main class="container">
-    <h1>Registro de Presença</h1>
+    <h1>Acessos registrados</h1>
 
     <section class="card">
-      <h2>Registrar presença</h2>
-      <form id="attendance-form">
-        <label>
-          ID do Cartão
-          <input type="text" id="cardId" required placeholder="Ex: 1234567890" />
-        </label>
-        <label>
-          Nome
-          <input type="text" id="nome" required placeholder="Ex: João Silva" />
-        </label>
-        <label>
-          Hora
-          <input type="datetime-local" id="hora" required />
-        </label>
-        <button type="submit">Registrar</button>
-      </form>
-      <div id="message" class="message"></div>
-    </section>
-
-    <section class="card">
-      <h2>Presenças registradas</h2>
-      <button id="refreshButton">Atualizar lista</button>
+      <div class="table-header">
+        <p class="intro">Visualize os acessos recebidos do hardware.</p>
+        <button id="refreshButton">Atualizar lista</button>
+      </div>
       <div id="presencasList" class="table-container"></div>
     </section>
   </main>

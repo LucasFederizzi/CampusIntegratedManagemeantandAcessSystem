@@ -1,13 +1,6 @@
 const API_URL = "http://127.0.0.1:5000/api/presenca";
-const form = document.getElementById("attendance-form");
-const messageEl = document.getElementById("message");
 const presencasList = document.getElementById("presencasList");
 const refreshButton = document.getElementById("refreshButton");
-
-function setMessage(text, isError = false) {
-  messageEl.textContent = text;
-  messageEl.style.color = isError ? "#d64545" : "#1f44d8";
-}
 
 function formatDateTime(value) {
   const date = new Date(value);
@@ -62,42 +55,10 @@ async function fetchPresencas() {
       </table>`;
   } catch (error) {
     presencasList.innerHTML = "<p>Erro ao carregar registros. Verifique se o backend está rodando.</p>";
+    setMessage("Falha ao carregar dados do hardware.", true);
     console.error(error);
   }
 }
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const cardId = document.getElementById("cardId").value.trim();
-  const nome = document.getElementById("nome").value.trim();
-  const hora = document.getElementById("hora").value;
-
-  if (!cardId || !nome || !hora) {
-    setMessage("Preencha todos os campos.", true);
-    return;
-  }
-
-  try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: cardId, nome, hora: new Date(hora).toISOString().slice(0, 19).replace("T", " ") }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || "Erro no servidor");
-    }
-
-    setMessage("Presença registrada com sucesso.");
-    form.reset();
-    fetchPresencas();
-  } catch (error) {
-    setMessage(error.message, true);
-    console.error(error);
-  }
-});
 
 refreshButton.addEventListener("click", fetchPresencas);
 window.addEventListener("load", fetchPresencas);

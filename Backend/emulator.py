@@ -17,7 +17,7 @@ def enviar_presenca(card_id: str, nome: str, hora: str = None):
 if __name__ == "__main__":
     card_id = sys.argv[1] if len(sys.argv) > 1 else "1234567890"
     nome = sys.argv[2] if len(sys.argv) > 2 else "Aluno Exemplo"
-    hora = sys.argv[3] if len(sys.argv) > 3 else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    Timestamp = sys.argv[3] if len(sys.argv) > 3 else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    resultado = enviar_presenca(card_id, nome, hora)
+    resultado = enviar_presenca(card_id, nome, Timestamp)
     print(resultado)
