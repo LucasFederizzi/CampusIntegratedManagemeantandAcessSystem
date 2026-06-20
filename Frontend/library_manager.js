@@ -1,7 +1,14 @@
 const API_URL = "http://127.0.0.1:5000/api/presenca";
+const BOOKS_API = "http://127.0.0.1:5000/api/books";
 const managerList = document.getElementById('managerList');
 const refreshBtn = document.getElementById('refreshButton');
 const searchInput = document.getElementById('searchInput');
+const booksListEl = document.getElementById('booksList');
+const addBookForm = document.getElementById('addBookForm');
+const bookCodeInput = document.getElementById('bookCode');
+const bookTitleInput = document.getElementById('bookTitle');
+const bookAuthorInput = document.getElementById('bookAuthor');
+const bookCopiesInput = document.getElementById('bookCopies');
 
 function formatDateTime(value) {
   if (!value) return '-';
@@ -17,6 +24,8 @@ async function loadRecords() {
     if (!res.ok) throw new Error('falha');
     const items = await res.json();
     renderTable(items);
+    // also refresh books
+    loadBooks();
   } catch (err) {
     managerList.innerHTML = '<p>Erro ao carregar registros.</p>';
     console.error(err);
@@ -112,3 +121,101 @@ async function handleEdit(pk) {
 refreshBtn.addEventListener('click', loadRecords);
 searchInput.addEventListener('input', () => loadRecords());
 window.addEventListener('load', loadRecords);
+
+// BOOKS: list, add, edit, delete
+async function loadBooks() {
+  booksListEl.innerHTML = 'Carregando...';
+  try {
+    const res = await fetch(BOOKS_API);
+    if (!res.ok) throw new Error('falha books');
+    const books = await res.json();
+    renderBooks(books);
+  } catch (err) {
+    booksListEl.innerHTML = '<p>Erro ao carregar livros.</p>';
+    console.error(err);
+  }
+}
+
+function renderBooks(books) {
+  const rows = (Array.isArray(books) ? books : [])
+    .map(b => `
+      <tr>
+        <td>${b.id}</td>
+        <td>${b.code || '-'}</td>
+        <td>${b.title}</td>
+        <td>${b.author || '-'}</td>
+        <td>${b.copies || 1}</td>
+        <td>
+          <button data-book-action="edit" data-id="${b.id}">Editar</button>
+          <button data-book-action="delete" data-id="${b.id}">Excluir</button>
+        </td>
+      </tr>`).join('');
+
+  booksListEl.innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Código</th><th>Título</th><th>Autor</th><th>Cópias</th><th>Ações</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  booksListEl.querySelectorAll('button[data-book-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-book-action');
+      const id = btn.getAttribute('data-id');
+      if (action === 'delete') return deleteBook(id);
+      if (action === 'edit') return editBookPrompt(id);
+    });
+  });
+}
+
+addBookForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    code: bookCodeInput.value.trim() || null,
+    title: bookTitleInput.value.trim(),
+    author: bookAuthorInput.value.trim() || null,
+    copies: parseInt(bookCopiesInput.value, 10) || 1
+  };
+  try {
+    const res = await fetch(BOOKS_API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(()=>({}));
+      throw new Error(data.error || 'Erro ao adicionar livro');
+    }
+    bookCodeInput.value = ''; bookTitleInput.value = ''; bookAuthorInput.value = ''; bookCopiesInput.value = '';
+    loadBooks();
+  } catch (err) {
+    alert('Falha ao adicionar livro. Veja console.'); console.error(err);
+  }
+});
+
+async function deleteBook(id) {
+  if (!confirm('Excluir livro ' + id + '?')) return;
+  try {
+    const res = await fetch(`${BOOKS_API}/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('erro');
+    loadBooks();
+  } catch (err) { alert('Falha ao excluir.'); console.error(err); }
+}
+
+async function editBookPrompt(id) {
+  try {
+    const res = await fetch(`${BOOKS_API}/${id}`);
+    if (!res.ok) throw new Error('not found');
+    const b = await res.json();
+    const title = prompt('Título', b.title);
+    if (title === null) return;
+    const author = prompt('Autor', b.author || '');
+    if (author === null) return;
+    const copies = prompt('Cópias', b.copies || 1);
+    if (copies === null) return;
+    const payload = { title, author, copies: parseInt(copies,10) || 1 };
+    const put = await fetch(`${BOOKS_API}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!put.ok) throw new Error('fail update');
+    loadBooks();
+  } catch (err) { alert('Falha ao editar.'); console.error(err); }
+}
+
+// initial load of books when page opens
+window.addEventListener('load', () => loadBooks());

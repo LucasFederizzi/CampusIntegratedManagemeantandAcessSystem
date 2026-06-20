@@ -43,6 +43,23 @@ def init_db():
     conn.commit()
     conn.close()
 
+    # Create books table for library management
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS books (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE,
+            title TEXT NOT NULL,
+            author TEXT,
+            copies INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
 
 def row_to_dict(row):
     if not row:
@@ -206,6 +223,99 @@ def historico_usuario(card_id):
     rows = cursor.fetchall()
     conn.close()
     return jsonify([row_to_dict(row) for row in rows]), 200
+
+
+# BOOKS - CRUD endpoints
+@app.route("/api/books", methods=["GET"])
+def list_books():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, code, title, author, copies, created_at, updated_at FROM books ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows]), 200
+
+
+@app.route("/api/books", methods=["POST"])
+def add_book():
+    payload = request.get_json(force=True, silent=True)
+    if not payload or not isinstance(payload, dict) or "title" not in payload:
+        return jsonify({"error": "JSON inválido. Envie ao menos 'title'."}), 400
+
+    code = payload.get("code")
+    title = payload.get("title")
+    author = payload.get("author")
+    copies = int(payload.get("copies", 1)) if str(payload.get("copies", "")).isdigit() else 1
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO books (code, title, author, copies) VALUES (?, ?, ?, ?)", (code, title, author, copies))
+        conn.commit()
+        book_id = cursor.lastrowid
+    except Exception as e:
+        conn.close()
+        return jsonify({"error": "Falha ao adicionar livro", "detail": str(e)}), 400
+    conn.close()
+    return jsonify({"message": "Livro adicionado", "id": book_id}), 201
+
+
+@app.route("/api/books/<int:book_id>", methods=["GET"])
+def get_book(book_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, code, title, author, copies, created_at, updated_at FROM books WHERE id = ?", (book_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "Livro não encontrado"}), 404
+    return jsonify(dict(row)), 200
+
+
+@app.route("/api/books/<int:book_id>", methods=["PUT"])
+def update_book(book_id):
+    payload = request.get_json(force=True, silent=True)
+    if not payload:
+        return jsonify({"error": "JSON inválido"}), 400
+
+    updates = []
+    params = []
+    if "code" in payload:
+        updates.append("code = ?"); params.append(payload["code"])
+    if "title" in payload:
+        updates.append("title = ?"); params.append(payload["title"])
+    if "author" in payload:
+        updates.append("author = ?"); params.append(payload["author"])
+    if "copies" in payload:
+        updates.append("copies = ?"); params.append(int(payload["copies"]))
+
+    if not updates:
+        return jsonify({"error": "Nenhum campo para atualizar"}), 400
+
+    updates.append("updated_at = ?"); params.append(datetime.utcnow().isoformat() + "Z")
+    params.append(book_id)
+
+    query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Livro atualizado"}), 200
+
+
+@app.route("/api/books/<int:book_id>", methods=["DELETE"])
+def delete_book(book_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM books WHERE id = ?", (book_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return jsonify({"error": "Livro não encontrado"}), 404
+    cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Livro removido"}), 200
 
 
 if __name__ == "__main__":

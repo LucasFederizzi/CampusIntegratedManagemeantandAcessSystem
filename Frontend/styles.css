@@ -85,3 +85,11 @@ tbody tr:hover {
 /* small decorative accents */
 .intro { color: var(--muted); }
 .table-header button { margin-left: auto; }
+
+/* Home link / topbar */
+.topbar { display:flex; justify-content:flex-end; margin-bottom:0.6rem; }
+.home-link {
+  display:inline-block; padding:0.45rem 0.75rem; border-radius:8px; text-decoration:none; color: #07110f;
+  background: linear-gradient(180deg,var(--brown), #6b4a2f); font-weight:700;
+}
+.home-link:hover { filter:brightness(0.95); }
