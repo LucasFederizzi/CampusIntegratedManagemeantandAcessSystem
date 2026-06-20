@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biblioteca - Gerenciador</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Gerenciador da Biblioteca</h1>
+    <p class="intro">Painel para gerenciar registros: editar nome/hora ou excluir entradas.</p>
+
+    <section class="card">
+      <div class="table-header">
+        <input id="searchInput" placeholder="Pesquisar por ID ou nome" style="flex:1; padding:0.7rem; border-radius:12px; border:1px solid #e6eefc;" />
+        <button id="refreshButton">Atualizar</button>
+      </div>
+      <div id="managerList" class="table-container">Carregando...</div>
+    </section>
+  </main>
+
+  <script src="library_manager.js"></script>
+</body>
+</html>

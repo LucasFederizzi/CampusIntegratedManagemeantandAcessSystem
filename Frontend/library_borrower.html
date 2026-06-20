@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biblioteca - Recebimento</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Recebimento de Livro</h1>
+    <p class="intro">Página para a pessoa que está recebendo o livro. Veja o último registro do leitor e confirme recebimento.</p>
+
+    <section class="card">
+      <h2>Último registro</h2>
+      <div id="latest" class="table-container">Carregando...</div>
+      <div style="margin-top:1rem; display:flex; gap:0.5rem; align-items:center;">
+        <input id="recipientName" placeholder="Seu nome (opcional)" style="flex:1; padding:0.7rem; border-radius:12px; border:1px solid #e6eefc;" />
+        <button id="confirmBtn">Confirmar recebimento</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Minhas retiradas</h2>
+      <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+        <input id="cardSearch" placeholder="Digite seu ID de cartão" style="flex:1; padding:0.7rem; border-radius:12px; border:1px solid #e6eefc;" />
+        <button id="searchBtn">Buscar</button>
+      </div>
+
+      <h3>Livros atualmente emprestados</h3>
+      <div id="currentLoans" class="table-container">—</div>
+
+      <h3 style="margin-top:1rem">Histórico de empréstimos</h3>
+      <div id="historyList" class="table-container">—</div>
+    </section>
+  </main>
+
+  <script src="library_borrower.js"></script>
+</body>
+</html>

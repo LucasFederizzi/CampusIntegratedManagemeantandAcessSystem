@@ -23,12 +23,23 @@ def init_db():
         CREATE TABLE IF NOT EXISTS presencas (
             pk INTEGER PRIMARY KEY AUTOINCREMENT,
             card_id TEXT NOT NULL,
-            nome TEXT NOT NULL,
+            nome TEXT,
             hora TEXT NOT NULL,
+            book_code TEXT,
+            tipo TEXT,
             recebido_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             atualizado_em TEXT
         )
     """)
+    # ensure older DBs get new columns (no-op if they exist)
+    try:
+        cursor.execute("ALTER TABLE presencas ADD COLUMN book_code TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE presencas ADD COLUMN tipo TEXT")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
@@ -40,10 +51,10 @@ def row_to_dict(row):
 
 
 def is_valid_payload(payload):
+    # require id and hora; nome optional (hardware may not send it)
     return (
         isinstance(payload, dict)
         and "id" in payload
-        and "nome" in payload
         and "hora" in payload
     )
 
@@ -63,8 +74,15 @@ def registrar_presenca():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO presencas (card_id, nome, hora, recebido_em) VALUES (?, ?, ?, ?)",
-        (str(payload["id"]), str(payload["nome"]), str(payload["hora"]), datetime.utcnow().isoformat() + "Z")
+        "INSERT INTO presencas (card_id, nome, hora, book_code, tipo, recebido_em) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            str(payload["id"]),
+            str(payload.get("nome", "")),
+            str(payload["hora"]),
+            str(payload.get("book_code")) if payload.get("book_code") is not None else None,
+            str(payload.get("tipo")) if payload.get("tipo") is not None else None,
+            datetime.utcnow().isoformat() + "Z",
+        )
     )
     conn.commit()
     pk = cursor.lastrowid
@@ -81,7 +99,7 @@ def registrar_presenca():
 def listar_presencas():
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT pk, card_id as id, nome, hora, recebido_em FROM presencas ORDER BY pk DESC")
+    cursor.execute("SELECT pk, card_id as id, nome, hora, book_code, tipo, recebido_em FROM presencas ORDER BY pk DESC")
     rows = cursor.fetchall()
     conn.close()
     return jsonify([row_to_dict(row) for row in rows]), 200
@@ -92,7 +110,7 @@ def listar_presencas():
 def obter_presenca(pk):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT pk, card_id as id, nome, hora, recebido_em FROM presencas WHERE pk = ?", (pk,))
+    cursor.execute("SELECT pk, card_id as id, nome, hora, book_code, tipo, recebido_em FROM presencas WHERE pk = ?", (pk,))
     row = cursor.fetchone()
     conn.close()
 
@@ -125,6 +143,12 @@ def atualizar_presenca(pk):
     if "hora" in payload:
         updates.append("hora = ?")
         params.append(str(payload["hora"]))
+    if "book_code" in payload:
+        updates.append("book_code = ?")
+        params.append(str(payload["book_code"]))
+    if "tipo" in payload:
+        updates.append("tipo = ?")
+        params.append(str(payload["tipo"]))
 
     if not updates:
         conn.close()
@@ -157,6 +181,31 @@ def deletar_presenca(pk):
     conn.close()
 
     return jsonify({"message": "Presença deletada com sucesso"}), 200
+
+
+# GET - Empréstimos ativos (último evento por código de livro é 'borrow')
+@app.route("/api/emprestimos/ativos", methods=["GET"])
+def emprestimos_ativos():
+    conn = get_db()
+    cursor = conn.cursor()
+    # take last pk per book_code where book_code is not null
+    cursor.execute(
+        "SELECT p.pk, p.card_id as id, p.book_code, p.hora, p.tipo, p.recebido_em FROM presencas p WHERE p.pk IN (SELECT MAX(pk) FROM presencas WHERE book_code IS NOT NULL GROUP BY book_code) AND p.tipo = 'borrow'"
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([row_to_dict(row) for row in rows]), 200
+
+
+# GET - Histórico por usuário (card id)
+@app.route("/api/presenca/usuario/<string:card_id>", methods=["GET"])
+def historico_usuario(card_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT pk, card_id as id, nome, hora, book_code, tipo, recebido_em FROM presencas WHERE card_id = ? ORDER BY pk DESC", (card_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return jsonify([row_to_dict(row) for row in rows]), 200
 
 
 if __name__ == "__main__":
