@@ -3,6 +3,9 @@ from flask_cors import CORS
 from pathlib import Path
 import sqlite3
 from datetime import datetime
+import pika
+import json
+import threading
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -76,18 +79,8 @@ def is_valid_payload(payload):
     )
 
 
-app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
-init_db()
-
-
-# CREATE - Registrar presença
-@app.route("/api/presenca", methods=["POST"])
-def registrar_presenca():
-    payload = request.get_json(force=True, silent=True)
-    if not payload or not is_valid_payload(payload):
-        return jsonify({"error": "JSON inválido. Envie id, nome e hora."}), 400
-
+def insert_presenca_from_payload(payload):
+    """Insert presenca from validated payload"""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
@@ -104,6 +97,63 @@ def registrar_presenca():
     conn.commit()
     pk = cursor.lastrowid
     conn.close()
+    return pk
+
+
+def setup_rabbitmq_consumer():
+    """Setup RabbitMQ consumer in background thread"""
+    def consume():
+        try:
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters('localhost')
+            )
+            channel = connection.channel()
+            channel.queue_declare(queue='presencas', durable=True)
+
+            def callback(ch, method, properties, body):
+                try:
+                    evento = json.loads(body)
+                    print(f"[RabbitMQ] Evento recebido: {evento}")
+                    
+                    if is_valid_payload(evento):
+                        pk = insert_presenca_from_payload(evento)
+                        print(f"[RabbitMQ] Presença registrada com pk={pk}")
+                    else:
+                        print(f"[RabbitMQ] Evento inválido: {evento}")
+                except Exception as e:
+                    print(f"[RabbitMQ] Erro ao processar evento: {e}")
+                finally:
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
+
+            channel.basic_consume(
+                queue='presencas',
+                on_message_callback=callback
+            )
+
+            print("[RabbitMQ] Consumidor iniciado, aguardando eventos...")
+            channel.start_consuming()
+        except Exception as e:
+            print(f"[RabbitMQ] Erro na conexão: {e}")
+            print("[RabbitMQ] Verifique se RabbitMQ está rodando em localhost:5672")
+
+    thread = threading.Thread(target=consume, daemon=True)
+    thread.start()
+
+
+app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+init_db()
+setup_rabbitmq_consumer()
+
+
+# CREATE - Registrar presença
+@app.route("/api/presenca", methods=["POST"])
+def registrar_presenca():
+    payload = request.get_json(force=True, silent=True)
+    if not payload or not is_valid_payload(payload):
+        return jsonify({"error": "JSON inválido. Envie id, nome e hora."}), 400
+
+    pk = insert_presenca_from_payload(payload)
 
     return jsonify({
         "message": "Presença registrada com sucesso",
