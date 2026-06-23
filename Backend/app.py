@@ -3,9 +3,6 @@ from flask_cors import CORS
 from pathlib import Path
 import sqlite3
 from datetime import datetime
-import pika
-import json
-import threading
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -100,68 +97,27 @@ def insert_presenca_from_payload(payload):
     return pk
 
 
-def setup_rabbitmq_consumer():
-    """Setup RabbitMQ consumer in background thread"""
-    def consume():
-        try:
-            connection = pika.BlockingConnection(
-                pika.ConnectionParameters('localhost')
-            )
-            channel = connection.channel()
-            channel.queue_declare(queue='presencas', durable=True)
-
-            def callback(ch, method, properties, body):
-                try:
-                    evento = json.loads(body)
-                    print(f"[RabbitMQ] Evento recebido: {evento}")
-                    
-                    if is_valid_payload(evento):
-                        pk = insert_presenca_from_payload(evento)
-                        print(f"[RabbitMQ] Presença registrada com pk={pk}")
-                    else:
-                        print(f"[RabbitMQ] Evento inválido: {evento}")
-                except Exception as e:
-                    print(f"[RabbitMQ] Erro ao processar evento: {e}")
-                finally:
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-
-            channel.basic_consume(
-                queue='presencas',
-                on_message_callback=callback
-            )
-
-            print("[RabbitMQ] Consumidor iniciado, aguardando eventos...")
-            channel.start_consuming()
-        except Exception as e:
-            print(f"[RabbitMQ] Erro na conexão: {e}")
-            print("[RabbitMQ] Verifique se RabbitMQ está rodando em localhost:5672")
-
-    thread = threading.Thread(target=consume, daemon=True)
-    thread.start()
-
-
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 init_db()
-setup_rabbitmq_consumer()
 
 
-# CREATE - Registrar presença
+# CREATE - Registrar presenca
 @app.route("/api/presenca", methods=["POST"])
 def registrar_presenca():
     payload = request.get_json(force=True, silent=True)
     if not payload or not is_valid_payload(payload):
-        return jsonify({"error": "JSON inválido. Envie id, nome e hora."}), 400
+        return jsonify({"error": "JSON invalido. Envie id e hora."}), 400
 
     pk = insert_presenca_from_payload(payload)
 
     return jsonify({
-        "message": "Presença registrada com sucesso",
+        "message": "Presenca registrada com sucesso",
         "pk": pk
     }), 201
 
 
-# READ - Listar todas as presenças
+# READ - Listar todas as presencas
 @app.route("/api/presenca", methods=["GET"])
 def listar_presencas():
     conn = get_db()
@@ -182,24 +138,24 @@ def obter_presenca(pk):
     conn.close()
 
     if not row:
-        return jsonify({"error": "Registro não encontrado"}), 404
+        return jsonify({"error": "Registro nao encontrado"}), 404
 
     return jsonify(row_to_dict(row)), 200
 
 
-# UPDATE - Atualizar presença
+# UPDATE - Atualizar presenca
 @app.route("/api/presenca/<int:pk>", methods=["PUT"])
 def atualizar_presenca(pk):
     payload = request.get_json(force=True, silent=True)
     if not payload:
-        return jsonify({"error": "JSON inválido"}), 400
+        return jsonify({"error": "JSON invalido"}), 400
 
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT pk FROM presencas WHERE pk = ?", (pk,))
     if not cursor.fetchone():
         conn.close()
-        return jsonify({"error": "Registro não encontrado"}), 404
+        return jsonify({"error": "Registro nao encontrado"}), 404
 
     updates = []
     params = []
@@ -230,10 +186,10 @@ def atualizar_presenca(pk):
     conn.commit()
     conn.close()
 
-    return jsonify({"message": "Presença atualizada com sucesso"}), 200
+    return jsonify({"message": "Presenca atualizada com sucesso"}), 200
 
 
-# DELETE - Deletar presença
+# DELETE - Deletar presenca
 @app.route("/api/presenca/<int:pk>", methods=["DELETE"])
 def deletar_presenca(pk):
     conn = get_db()
@@ -241,16 +197,16 @@ def deletar_presenca(pk):
     cursor.execute("SELECT pk FROM presencas WHERE pk = ?", (pk,))
     if not cursor.fetchone():
         conn.close()
-        return jsonify({"error": "Registro não encontrado"}), 404
+        return jsonify({"error": "Registro nao encontrado"}), 404
 
     cursor.execute("DELETE FROM presencas WHERE pk = ?", (pk,))
     conn.commit()
     conn.close()
 
-    return jsonify({"message": "Presença deletada com sucesso"}), 200
+    return jsonify({"message": "Presenca deletada com sucesso"}), 200
 
 
-# GET - Empréstimos ativos (último evento por código de livro é 'borrow')
+# GET - Emprestimos ativos (ultimo evento por codigo de livro e 'borrow')
 @app.route("/api/emprestimos/ativos", methods=["GET"])
 def emprestimos_ativos():
     conn = get_db()
@@ -264,7 +220,7 @@ def emprestimos_ativos():
     return jsonify([row_to_dict(row) for row in rows]), 200
 
 
-# GET - Histórico por usuário (card id)
+# GET - Historico por usuario (card id)
 @app.route("/api/presenca/usuario/<string:card_id>", methods=["GET"])
 def historico_usuario(card_id):
     conn = get_db()
@@ -290,7 +246,7 @@ def list_books():
 def add_book():
     payload = request.get_json(force=True, silent=True)
     if not payload or not isinstance(payload, dict) or "title" not in payload:
-        return jsonify({"error": "JSON inválido. Envie ao menos 'title'."}), 400
+        return jsonify({"error": "JSON invalido. Envie ao menos 'title'."}), 400
 
     code = payload.get("code")
     title = payload.get("title")
@@ -318,7 +274,7 @@ def get_book(book_id):
     row = cursor.fetchone()
     conn.close()
     if not row:
-        return jsonify({"error": "Livro não encontrado"}), 404
+        return jsonify({"error": "Livro nao encontrado"}), 404
     return jsonify(dict(row)), 200
 
 
@@ -326,23 +282,28 @@ def get_book(book_id):
 def update_book(book_id):
     payload = request.get_json(force=True, silent=True)
     if not payload:
-        return jsonify({"error": "JSON inválido"}), 400
+        return jsonify({"error": "JSON invalido"}), 400
 
     updates = []
     params = []
     if "code" in payload:
-        updates.append("code = ?"); params.append(payload["code"])
+        updates.append("code = ?")
+        params.append(payload["code"])
     if "title" in payload:
-        updates.append("title = ?"); params.append(payload["title"])
+        updates.append("title = ?")
+        params.append(payload["title"])
     if "author" in payload:
-        updates.append("author = ?"); params.append(payload["author"])
+        updates.append("author = ?")
+        params.append(payload["author"])
     if "copies" in payload:
-        updates.append("copies = ?"); params.append(int(payload["copies"]))
+        updates.append("copies = ?")
+        params.append(int(payload["copies"]))
 
     if not updates:
         return jsonify({"error": "Nenhum campo para atualizar"}), 400
 
-    updates.append("updated_at = ?"); params.append(datetime.utcnow().isoformat() + "Z")
+    updates.append("updated_at = ?")
+    params.append(datetime.utcnow().isoformat() + "Z")
     params.append(book_id)
 
     query = f"UPDATE books SET {', '.join(updates)} WHERE id = ?"
@@ -361,7 +322,7 @@ def delete_book(book_id):
     cursor.execute("SELECT id FROM books WHERE id = ?", (book_id,))
     if not cursor.fetchone():
         conn.close()
-        return jsonify({"error": "Livro não encontrado"}), 404
+        return jsonify({"error": "Livro nao encontrado"}), 404
     cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
     conn.commit()
     conn.close()

@@ -1,8 +1,7 @@
 import serial
 import json
 
-from producer import enviar_evento
-from datetime import datetime
+from http_sender import send_attendance
 
 arduino = serial.Serial(
     '/dev/ttyACM0',
@@ -31,18 +30,10 @@ while True:
 
         uid = dados["uid"]
 
-        evento = {
-            "uid": uid,
-            "timestamp": datetime.now().isoformat(),
-            "local": LOCAL,
-            "tipo": "presenca"
-        }
-
-        # ENVIA PARA O RABBITMQ
-        enviar_evento(evento)
+        send_attendance(uid, tipo="presenca")
 
         print("Evento enviado:")
-        print(evento)
+        print({"id": uid, "local": LOCAL, "tipo": "presenca"})
 
     except Exception as e:
 
